@@ -1,0 +1,204 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    /* Telegram-inspired design system */
+    --background: 210 20% 98%;
+    --foreground: 210 20% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 20% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 20% 10%;
+
+    /* Telegram Blue */
+    --primary: 200 100% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 94%;
+    --secondary-foreground: 210 20% 20%;
+
+    --muted: 210 20% 96%;
+    --muted-foreground: 210 10% 45%;
+
+    --accent: 200 80% 95%;
+    --accent-foreground: 200 100% 30%;
+
+    /* Emergency/SOS Red */
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Success Green */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    /* Warning Orange */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 200 100% 40%;
+
+    --radius: 1rem;
+
+    /* Custom gradients */
+    --gradient-telegram: linear-gradient(135deg, hsl(200, 100%, 45%) 0%, hsl(200, 100%, 35%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(200, 80%, 96%) 0%, hsl(210, 20%, 98%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0, 0%, 100%) 0%, hsl(210, 20%, 98%) 100%);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(210 20% 10% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(210 20% 10% / 0.1), 0 2px 4px -2px hsl(210 20% 10% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(210 20% 10% / 0.1), 0 4px 6px -4px hsl(210 20% 10% / 0.1);
+    --shadow-telegram: 0 2px 12px hsl(200 100% 40% / 0.2);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 210 25% 8%;
+    --foreground: 210 20% 95%;
+
+    --card: 210 25% 12%;
+    --card-foreground: 210 20% 95%;
+
+    --popover: 210 25% 12%;
+    --popover-foreground: 210 20% 95%;
+
+    --primary: 200 100% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 18%;
+    --secondary-foreground: 210 20% 90%;
+
+    --muted: 210 20% 15%;
+    --muted-foreground: 210 15% 55%;
+
+    --accent: 200 60% 20%;
+    --accent-foreground: 200 100% 70%;
+
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 60% 40%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 80% 45%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 210 20% 20%;
+    --input: 210 20% 20%;
+    --ring: 200 100% 50%;
+
+    --gradient-telegram: linear-gradient(135deg, hsl(200, 100%, 50%) 0%, hsl(200, 100%, 40%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(210, 25%, 12%) 0%, hsl(210, 25%, 8%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(210, 25%, 14%) 0%, hsl(210, 25%, 10%) 100%);
+
+    --shadow-telegram: 0 2px 12px hsl(200 100% 50% / 0.3);
+
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+@layer utilities {
+  .gradient-telegram {
+    background: var(--gradient-telegram);
+  }
+
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .gradient-card {
+    background: var(--gradient-card);
+  }
+
+  .shadow-telegram {
+    box-shadow: var(--shadow-telegram);
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-bounce-gentle {
+    animation: bounce-gentle 2s ease-in-out infinite;
+  }
+
+  @keyframes bounce-gentle {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+}
+
+/* Telegram Mini App specific styles */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
