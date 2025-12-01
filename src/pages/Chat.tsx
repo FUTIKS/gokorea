@@ -14,12 +14,8 @@ import {
   User, 
   FileDown,
   Calculator,
-  MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Galaxy komponentini import qilish
-import Galaxy from "@/components/ui/Galaxy/Galaxy";
 
 interface Message {
   id: string;
@@ -80,7 +76,6 @@ export default function Chat() {
     setIsLoading(true);
 
     try {
-      // Get existing active conversation or create new
       const { data: existing } = await supabase
         .from("conversations")
         .select("*, messages(*)")
@@ -105,7 +100,6 @@ export default function Chat() {
         setConversationId(newConv.id);
         setMessages([]);
         
-        // Add welcome message (O'zbekchaga o'girildi)
         const welcomeMsg: Message = {
           id: "welcome",
           content: "Salom! Men sizning AI yordamchingizman. Bugun qanday yordam bera olaman? Konsalting xizmatlarimiz haqida so'rashingiz yoki xarajatlarni kuzatish uchun kalkulyator tugmasidan foydalanishingiz mumkin.",
@@ -143,7 +137,6 @@ export default function Chat() {
     setInputValue("");
 
     try {
-      // Save user message
       await supabase.from("messages").insert({
         conversation_id: conversationId,
         content,
@@ -159,7 +152,6 @@ export default function Chat() {
           .eq("id", conversationId);
       }
 
-      // Simulate AI response (O'zbekchaga o'girildi)
       setTimeout(async () => {
         const aiResponse = generateAIResponse(content);
         const aiMessage: Message = {
@@ -192,7 +184,6 @@ export default function Chat() {
     }
   };
 
-  // AI javoblarini o'zbekchaga o'girish
   const generateAIResponse = (input: string): string => {
     const lowerInput = input.toLowerCase();
     
@@ -224,160 +215,139 @@ export default function Chat() {
       title: "Eksport Boshlandi",
       description: "Suhbat tarixingiz PDF fayliga eksport qilinmoqda...",
     });
-    // PDF export implementation would go here
   };
 
   if (authLoading || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0A122A]">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-white">Suhbat yuklanmoqda...</div>
       </div>
     );
   }
 
   return (
-    // 1. Umumiy fon va animatsiyani joylash
-    <div className="min-h-screen flex flex-col relative bg-[#0A122A] text-white">
-        
-      {/* Galaxy Animatsiyasi (Fon) */}
-      <div className="absolute top-0 left-0 w-full h-full z-0 opacity-70">
-        <Galaxy 
-          mouseInteraction={false}
-          density={1.5}
-          glowIntensity={0.8} 
-          hueShift={0}
-          saturation={0.0}
-          transparent={true} 
-        />
-      </div>
-
-      {/* Kontent qismi (Header, Messages, Input) */}
-      <div className="relative z-10 flex flex-col flex-1 pb-20"> {/* pb-20 pastki navigatsiya uchun */}
-        
-        {/* Header */}
-        <header className="sticky top-0 z-30 border-b border-gray-700 bg-black/50 backdrop-blur-lg px-4 py-3 pt-16">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <Bot className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h1 className="font-semibold text-white">AI Yordamchi</h1>
-                <p className="text-xs text-gray-400">
-                  {isVoiceMode 
-                    ? `Ovozli rejim (${MAX_VOICE_MESSAGES - voiceCount} qoldi)` 
-                    : "Matn rejimi"}
-                </p>
-              </div>
+    <div className="min-h-screen flex flex-col text-white">
+      {/* Header */}
+      <header className="sticky top-0 z-30 border-b border-gray-700 bg-black/50 backdrop-blur-lg px-4 py-3 pt-16">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+              <Bot className="h-5 w-5 text-white" />
             </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="icon-sm" onClick={() => navigate("/calculator")} className="text-blue-400 hover:bg-black/40 focus-visible:ring-offset-0">
-                <Calculator className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon-sm" onClick={exportToPDF} className="text-blue-400 hover:bg-black/40 focus-visible:ring-offset-0">
-                <FileDown className="h-4 w-4" />
-              </Button>
+            <div>
+              <h1 className="font-semibold text-white">AI Yordamchi</h1>
+              <p className="text-xs text-gray-400">
+                {isVoiceMode 
+                  ? `Ovozli rejim (${MAX_VOICE_MESSAGES - voiceCount} qoldi)` 
+                  : "Matn rejimi"}
+              </p>
             </div>
           </div>
-        </header>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="icon-sm" onClick={() => navigate("/calculator")} className="text-blue-400 hover:bg-black/40">
+              <Calculator className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={exportToPDF} className="text-blue-400 hover:bg-black/40">
+              <FileDown className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </header>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-          {messages.map((message) => (
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={cn(
+              "flex gap-3 animate-fade-in",
+              message.is_ai ? "flex-row" : "flex-row-reverse"
+            )}
+          >
             <div
-              key={message.id}
               className={cn(
-                "flex gap-3 animate-fade-in",
-                message.is_ai ? "flex-row" : "flex-row-reverse"
+                "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                message.is_ai
+                  ? "bg-gradient-to-br from-blue-500 to-purple-600"
+                  : "bg-gray-700"
               )}
             >
-              <div
-                className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-                  message.is_ai
-                    ? "bg-gradient-to-br from-blue-500 to-purple-600"
-                    : "bg-gray-700"
-                )}
-              >
-                {message.is_ai ? (
-                  <Bot className="h-4 w-4 text-white" />
-                ) : (
-                  <User className="h-4 w-4 text-white" />
-                )}
-              </div>
-              <Card
-                className={cn(
-                  "max-w-[80%] border-0",
-                  // AI xabarlari (shaffof fon, to'q fon uchun mos)
-                  message.is_ai
-                    ? "bg-black/30 shadow-lg shadow-blue-500/10 text-white"
-                    : "bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30" // Foydalanuvchi xabarlari (yorqin rang)
-                )}
-              >
-                <CardContent className="p-3">
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  <p
-                    className={cn(
-                      "text-[10px] mt-1",
-                      message.is_ai ? "text-gray-400" : "text-white/70"
-                    )}
-                  >
-                    {new Date(message.created_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          ))}
-          {isSending && (
-            <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+              {message.is_ai ? (
                 <Bot className="h-4 w-4 text-white" />
-              </div>
-              <Card className="bg-black/30 shadow-lg shadow-blue-500/10 border-0">
-                <CardContent className="p-3">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" />
-                    <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
-                    <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "0.4s" }} />
-                  </div>
-                </CardContent>
-              </Card>
+              ) : (
+                <User className="h-4 w-4 text-white" />
+              )}
             </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input */}
-        <div className="sticky bottom-0 z-20 border-t border-gray-700 bg-black/50 backdrop-blur-lg p-4">
-          <form onSubmit={handleSubmit} className="flex gap-2">
-            <Button
-              type="button"
-              variant={isVoiceMode ? "telegram" : "outline"}
-              size="icon"
-              onClick={() => voiceCount < MAX_VOICE_MESSAGES && setIsVoiceMode(!isVoiceMode)}
-              disabled={voiceCount >= MAX_VOICE_MESSAGES}
+            <Card
               className={cn(
-                "focus-visible:ring-offset-0",
-                isVoiceMode ? "bg-red-600/90 hover:bg-red-700/90" : "bg-black/40 text-red-400 hover:bg-black/50 border-gray-700" // Ovozni yozish tugmasi
+                "max-w-[80%] border-0",
+                message.is_ai
+                  ? "bg-black/30 shadow-lg shadow-blue-500/10 text-white"
+                  : "bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30"
               )}
             >
-              {isVoiceMode ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-            </Button>
-            <Input
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder={isVoiceMode ? "Ovozli xabar..." : "Xabar yozing..."}
-              className="flex-1 bg-black/40 border-gray-700 text-white focus-visible:ring-offset-0"
-              disabled={isSending}
-            />
-            <Button type="submit" variant="telegram" size="icon" disabled={!inputValue.trim() || isSending} className="bg-blue-600/90 hover:bg-blue-700/90 focus-visible:ring-offset-0">
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
-        </div>
+              <CardContent className="p-3">
+                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                <p
+                  className={cn(
+                    "text-[10px] mt-1",
+                    message.is_ai ? "text-gray-400" : "text-white/70"
+                  )}
+                >
+                  {new Date(message.created_at).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        ))}
+        {isSending && (
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+              <Bot className="h-4 w-4 text-white" />
+            </div>
+            <Card className="bg-black/30 shadow-lg shadow-blue-500/10 border-0">
+              <CardContent className="p-3">
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" />
+                  <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
+                  <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "0.4s" }} />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="sticky bottom-0 z-20 border-t border-gray-700 bg-black/50 backdrop-blur-lg p-4">
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <Button
+            type="button"
+            variant={isVoiceMode ? "telegram" : "outline"}
+            size="icon"
+            onClick={() => voiceCount < MAX_VOICE_MESSAGES && setIsVoiceMode(!isVoiceMode)}
+            disabled={voiceCount >= MAX_VOICE_MESSAGES}
+            className={cn(
+              isVoiceMode ? "bg-red-600/90 hover:bg-red-700/90" : "bg-black/40 text-red-400 hover:bg-black/50 border-gray-700"
+            )}
+          >
+            {isVoiceMode ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+          </Button>
+          <Input
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder={isVoiceMode ? "Ovozli xabar..." : "Xabar yozing..."}
+            className="flex-1 bg-black/40 border-gray-700 text-white"
+            disabled={isSending}
+          />
+          <Button type="submit" variant="telegram" size="icon" disabled={!inputValue.trim() || isSending} className="bg-blue-600/90 hover:bg-blue-700/90">
+            <Send className="h-4 w-4" />
+          </Button>
+        </form>
       </div>
     </div>
   );

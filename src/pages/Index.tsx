@@ -13,13 +13,9 @@ import {
   Clock,
   Users,
   AlertTriangle,
-  FileCheck // 'Hujjatlarni yuklash/tekshirish' uchun qo'shildi
+  FileCheck
 } from "lucide-react";
 
-// Galaxy komponentini import qilish
-import Galaxy from "@/components/ui/Galaxy/Galaxy"; 
-
-// Funksiyalar ro'yxatini o'zbekchaga o'girish
 const features = [
   {
     icon: MessageCircle,
@@ -52,7 +48,6 @@ const features = [
   },
 ];
 
-// Statistika elementlarini o'zbekchaga o'girish
 const stats = [
   { icon: Users, value: "24/7", label: "Qo'llab-quvvatlash" },
   { icon: Clock, value: "<1 daq.", label: "Javob vaqti" },
@@ -69,10 +64,8 @@ export default function Index() {
       navigate("/auth");
     }
 
-    // Telegram MainButton Integratsiyasi
     const MainButton = mainButtonRef.current;
     if (MainButton) {
-      // MainButton matnini o'zbekchaga o'girish
       MainButton.setText("Yangi Chatni Boshlash");
       const startChat = () => navigate("/chat");
       MainButton.onClick(startChat);
@@ -88,7 +81,7 @@ export default function Index() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0A122A]">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-primary">Yuklanmoqda...</div>
       </div>
     );
@@ -97,123 +90,103 @@ export default function Index() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen w-full relative overflow-hidden pb-20 bg-[#0A122A] text-white"> 
+    <div className="min-h-screen w-full text-white"> 
       
-      {/* Galaxy Animatsiyasi (Fon) */}
-      <div className="absolute top-0 left-0 w-full h-full z-0 opacity-70">
-        <Galaxy 
-          mouseInteraction={false} 
-          density={1.5}
-          glowIntensity={0.8} 
-          hueShift={0}
-          saturation={0.0} 
-          transparent={true} 
-        />
-      </div>
+      {/* Header */}
+      <header className="pt-16 pb-8 px-4 relative">
+        <div className="text-center animate-fade-in text-white">
+          <h1 className="text-2xl font-bold text-white">
+            Xush kelibsiz{profile?.username ? `, ${profile.username}` : ""}! 👋
+          </h1>
+          <p className="text-gray-400 mt-1">
+            Bugun qanday yordam bera olamiz?
+          </p>
+        </div>
 
-      {/* Kontent qismini Animatsiya ustiga chiqarish */}
-      <div className="relative z-10">
-        
-        {/* Header */}
-        <header className="pt-16 pb-8 px-4 relative">
-          <div className="text-center animate-fade-in text-white">
-            <h1 className="text-2xl font-bold text-white">
-              Xush kelibsiz{profile?.username ? `, ${profile.username}` : ""}! 👋
-            </h1>
-            <p className="text-gray-400 mt-1">
-              Bugun qanday yordam bera olamiz?
-            </p>
-          </div>
+        <div className="absolute top-16 right-4">
+            <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-yellow-400 hover:text-yellow-500 relative"
+                onClick={() => alert("Sizning Premium obunangiz 3 kundan keyin tugaydi!")}
+            >
+                <AlertTriangle className="h-6 w-6" /> 
+                <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+            </Button>
+        </div>
+      </header>
 
-          {/* Alert Button (Bildirishnoma) */}
-          <div className="absolute top-16 right-4">
-              <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-yellow-400 hover:text-yellow-500 relative"
-                  onClick={() => alert("Sizning Premium obunangiz 3 kundan keyin tugaydi!")}
-              >
-                  <AlertTriangle className="h-6 w-6" /> 
-                  {/* Kichik qizil doira */}
-                  <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-              </Button>
-          </div>
-        </header>
+      {/* Stats */}
+      <section className="px-4 mb-8">
+        <div className="grid grid-cols-3 gap-3">
+          {stats.map((stat) => (
+            <Card key={stat.label} className="border-0 shadow-lg bg-black/30 backdrop-blur-sm">
+              <CardContent className="p-4 text-center">
+                <stat.icon className="h-5 w-5 mx-auto mb-2 text-blue-400" />
+                <p className="text-lg font-bold text-white">{stat.value}</p>
+                <p className="text-xs text-gray-400">{stat.label}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
 
-        {/* Stats */}
-        <section className="px-4 mb-8">
-          <div className="grid grid-cols-3 gap-3">
-            {stats.map((stat) => (
-              <Card key={stat.label} className="border-0 shadow-lg bg-black/30 backdrop-blur-sm">
-                <CardContent className="p-4 text-center">
-                  <stat.icon className="h-5 w-5 mx-auto mb-2 text-blue-400" />
-                  <p className="text-lg font-bold text-white">{stat.value}</p>
-                  <p className="text-xs text-gray-400">{stat.label}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
+      {/* Features */}
+      <section className="px-4 space-y-3">
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider px-1">
+          Xizmatlar
+        </h2>
+        {features.map((feature, index) => {
+          if (feature.adminOnly && !isAdmin) return null;
 
-        {/* Features */}
-        <section className="px-4 space-y-3">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider px-1">
-            Xizmatlar
-          </h2>
-          {features.map((feature, index) => {
-            if (feature.adminOnly && !isAdmin) return null;
-
-            return (
-              <Card
-                key={feature.title}
-                className="border-0 shadow-lg bg-black/30 backdrop-blur-sm hover:shadow-xl transition-all duration-300 cursor-pointer animate-fade-in overflow-hidden"
-                style={{ animationDelay: `${index * 100}ms` }}
-                onClick={() => navigate(feature.path)}
-              >
-                <CardContent className="p-0">
-                  <div className="flex items-center gap-4 p-4">
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center shadow-md`}>
-                      <feature.icon className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-white">{feature.title}</h3>
-                      <p className="text-sm text-gray-400">{feature.description}</p>
-                    </div>
-                    <ArrowRight className="h-5 w-5 text-gray-400" />
+          return (
+            <Card
+              key={feature.title}
+              className="border-0 shadow-lg bg-black/30 backdrop-blur-sm hover:shadow-xl transition-all duration-300 cursor-pointer animate-fade-in overflow-hidden"
+              style={{ animationDelay: `${index * 100}ms` }}
+              onClick={() => navigate(feature.path)}
+            >
+              <CardContent className="p-0">
+                <div className="flex items-center gap-4 p-4">
+                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center shadow-md`}>
+                    <feature.icon className="h-6 w-6 text-white" />
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </section>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-white">{feature.title}</h3>
+                    <p className="text-sm text-gray-400">{feature.description}</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-gray-400" />
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </section>
 
-        {/* Quick Actions */}
-        <section className="px-4 mt-8 mb-8">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider px-1 mb-3">
-            Tezkor Amallar
-          </h2>
-          <div className="flex gap-3">
-            {/* Hujjat yuklash */}
-            <Button
-              variant="telegram"
-              className="flex-1 bg-black/20 border-white/20 hover:bg-black/30 text-white"
-              onClick={() => navigate("/documents")}
-            >
-              <FileCheck className="h-4 w-4 mr-2" />
-              Hujjat Yuklash
-            </Button>
-            {/* Hisob-kitob */}
-            <Button
-              variant="telegram"
-              className="flex-1 bg-black/20 border-white/20 hover:bg-black/30 text-white"
-              onClick={() => navigate("/calculator")}
-            >
-              <Calculator className="h-4 w-4 mr-2" />
-              Hisob-kitob
-            </Button>
-          </div>
-        </section>
-      </div>
+      {/* Quick Actions */}
+      <section className="px-4 mt-8 mb-8">
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider px-1 mb-3">
+          Tezkor Amallar
+        </h2>
+        <div className="flex gap-3">
+          <Button
+            variant="telegram"
+            className="flex-1 bg-black/20 border-white/20 hover:bg-black/30 text-white"
+            onClick={() => navigate("/documents")}
+          >
+            <FileCheck className="h-4 w-4 mr-2" />
+            Hujjat Yuklash
+          </Button>
+          <Button
+            variant="telegram"
+            className="flex-1 bg-black/20 border-white/20 hover:bg-black/30 text-white"
+            onClick={() => navigate("/calculator")}
+          >
+            <Calculator className="h-4 w-4 mr-2" />
+            Hisob-kitob
+          </Button>
+        </div>
+      </section>
       
     </div>
   );
