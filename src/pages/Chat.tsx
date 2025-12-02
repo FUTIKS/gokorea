@@ -14,6 +14,9 @@ import {
   User, 
   FileDown,
   Calculator,
+  Volume2,
+  VolumeX,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,8 +28,6 @@ interface Message {
   created_at: string;
 }
 
-const MAX_VOICE_MESSAGES = 5;
-
 export default function Chat() {
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -35,11 +36,20 @@ export default function Chat() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [isVoiceMode, setIsVoiceMode] = useState(true);
-  const [voiceCount, setVoiceCount] = useState(0);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [hasGreeted, setHasGreeted] = useState(false);
+  const [autoSpeakEnabled, setAutoSpeakEnabled] = useState(true);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [micPermission, setMicPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
+  
+  const recognitionRef = useRef<any>(null);
+  const synthRef = useRef<SpeechSynthesis>(window.speechSynthesis);
+  const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -58,14 +68,213 @@ export default function Chat() {
   }, [messages]);
 
   useEffect(() => {
-    if (voiceCount >= MAX_VOICE_MESSAGES && isVoiceMode) {
-      setIsVoiceMode(false);
+    checkVoiceSupport();
+    initializeSpeechRecognition();
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      stopSpeaking();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (conversationId && !hasGreeted && messages.length > 0 && voiceSupported) {
+      setHasGreeted(true);
+      setTimeout(() => {
+        requestMicrophonePermission();
+      }, 800);
+    }
+  }, [conversationId, messages, hasGreeted, voiceSupported]);
+
+  const checkVoiceSupport = () => {
+    const speechSupported = 'speechSynthesis' in window;
+    const recognitionSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+    
+    setVoiceSupported(speechSupported && recognitionSupported);
+
+    if (!speechSupported || !recognitionSupported) {
       toast({
-        title: "Ovozli Xabar Limiti",
-        description: "Matn rejimiga o'tildi. Ovozli xabarlar limiti: 5 ta.",
+        title: "Ovoz funksiyalari",
+        description: "Brauzeringiz ovoz funksiyalarini to'liq qo'llab-quvvatlamaydi",
+        variant: "destructive",
       });
     }
-  }, [voiceCount, isVoiceMode, toast]);
+  };
+
+  const requestMicrophonePermission = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+      setMicPermission('granted');
+      
+      const greetingText = "Assalomu alaykum! Men Go Korea assistentiman. Sizga qanday yordam bera olaman? Qanday savolingiz bor?";
+      speak(greetingText);
+      
+      toast({
+        title: "Mikrofon yoqildi",
+        description: "Endi siz ovozli xabarlar yuborishingiz mumkin",
+      });
+    } catch (error) {
+      console.error('Microphone permission denied:', error);
+      setMicPermission('denied');
+      setAutoSpeakEnabled(false);
+    }
+  };
+
+  const initializeSpeechRecognition = () => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'uz-UZ';
+
+      recognitionRef.current.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInputValue(transcript);
+        setIsListening(false);
+        
+        toast({
+          title: "Ovoz tanildi",
+          description: transcript,
+        });
+        
+        sendMessage(transcript, "voice");
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+        
+        if (event.error === 'no-speech') {
+          toast({
+            title: "Ovoz eshitilmadi",
+            description: "Iltimos, qaytadan urinib ko'ring",
+            variant: "destructive",
+          });
+        } else if (event.error === 'not-allowed') {
+          setMicPermission('denied');
+          toast({
+            title: "Ruxsat berilmadi",
+            description: "Mikrofon ruxsatini brauzer sozlamalaridan yoqing",
+            variant: "destructive",
+          });
+        }
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+  };
+
+  const speak = (text: string) => {
+    if (!autoSpeakEnabled || !voiceSupported) return;
+    
+    stopSpeaking();
+    
+    if (synthRef.current.getVoices().length === 0) {
+      synthRef.current.addEventListener('voiceschanged', () => {
+        performSpeak(text);
+      }, { once: true });
+    } else {
+      performSpeak(text);
+    }
+  };
+
+  const performSpeak = (text: string) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    const voices = synthRef.current.getVoices();
+    const uzbekVoice = voices.find(v => v.lang.includes('uz')) || 
+                       voices.find(v => v.lang.includes('ru')) ||
+                       voices[0];
+    
+    if (uzbekVoice) {
+      utterance.voice = uzbekVoice;
+    }
+    
+    utterance.lang = 'uz-UZ';
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+    };
+
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      currentUtteranceRef.current = null;
+    };
+
+    utterance.onerror = (event) => {
+      console.error('Speech synthesis error:', event);
+      setIsSpeaking(false);
+      currentUtteranceRef.current = null;
+    };
+
+    currentUtteranceRef.current = utterance;
+    synthRef.current.speak(utterance);
+  };
+
+  const stopSpeaking = () => {
+    if (synthRef.current.speaking) {
+      synthRef.current.cancel();
+    }
+    setIsSpeaking(false);
+    currentUtteranceRef.current = null;
+  };
+
+  const toggleListening = async () => {
+    if (!voiceSupported) {
+      toast({
+        title: "Xatolik",
+        description: "Ovoz funksiyasi mavjud emas",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (micPermission === 'denied') {
+      toast({
+        title: "Ruxsat kerak",
+        description: "Mikrofon ruxsatini brauzer sozlamalaridan yoqing",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (micPermission === 'prompt') {
+      await requestMicrophonePermission();
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      if (isSpeaking) {
+        stopSpeaking();
+      }
+      try {
+        recognitionRef.current?.start();
+      } catch (error) {
+        console.error('Error starting recognition:', error);
+        toast({
+          title: "Xatolik",
+          description: "Ovozni tanishda xatolik yuz berdi",
+          variant: "destructive",
+        });
+      }
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -88,7 +297,6 @@ export default function Chat() {
       if (existing) {
         setConversationId(existing.id);
         setMessages(existing.messages || []);
-        setVoiceCount(existing.voice_messages_count || 0);
       } else {
         const { data: newConv, error } = await supabase
           .from("conversations")
@@ -102,7 +310,7 @@ export default function Chat() {
         
         const welcomeMsg: Message = {
           id: "welcome",
-          content: "Salom! Men sizning AI yordamchingizman. Bugun qanday yordam bera olaman? Konsalting xizmatlarimiz haqida so'rashingiz yoki xarajatlarni kuzatish uchun kalkulyator tugmasidan foydalanishingiz mumkin.",
+          content: "Salom! Men sizning AI yordamchingizman. Bugun qanday yordam bera olaman?",
           is_ai: true,
           message_type: "text",
           created_at: new Date().toISOString(),
@@ -144,14 +352,6 @@ export default function Chat() {
         is_ai: false,
       });
 
-      if (type === "voice") {
-        setVoiceCount((prev) => prev + 1);
-        await supabase
-          .from("conversations")
-          .update({ voice_messages_count: voiceCount + 1 })
-          .eq("id", conversationId);
-      }
-
       setTimeout(async () => {
         const aiResponse = generateAIResponse(content);
         const aiMessage: Message = {
@@ -170,6 +370,10 @@ export default function Chat() {
           message_type: "text",
           is_ai: true,
         });
+
+        if (autoSpeakEnabled) {
+          speak(aiResponse);
+        }
 
         setIsSending(false);
       }, 1000);
@@ -191,22 +395,22 @@ export default function Chat() {
       return "Bizning konsalting xizmatlarimiz sizning ehtiyojlaringizga moslashtirilgan. Asosiy konsultatsiya soatiga 99$ dan boshlanadi. Davom etayotgan loyihalar uchun biz paketli shartnomalar taklif qilamiz. Sizga aniq hisob-kitob qilishda yordam beraymi?";
     }
     if (lowerInput.includes("hujjat") || lowerInput.includes("fayl")) {
-      return "Siz hujjatlaringizni 'Hujjatlar' bo'limida boshqarishingiz mumkin. Men rasmlarni PDF ga o'zgartirish, fayllarni arxivlash yoki yuklamalarni tartiblashda yordam bera olaman. Shunchaki navigatsiyadagi 'Hujjatlar' belgisini bosing!";
+      return "Siz hujjatlaringizni 'Hujjatlar' bo'limida boshqarishingiz mumkin. Men rasmlarni PDF ga o'zgartirish, fayllarni arxivlash yoki yuklamalarni tartiblashda yordam bera olaman.";
     }
     if (lowerInput.includes("kalkulyator") || lowerInput.includes("xarajat")) {
-      return "'Hisob-kitoblar' bo'limi sizga xarajatlarni toifalar bo'yicha (Transport, Oziq-ovqat, Xizmatlar va h.k.) kuzatish, valyutalarni konvertatsiya qilish va hisob-kitoblarni eksport qilish imkonini beradi. Xarajatlarni kuzatishda yordam beraymi?";
+      return "Hisob-kitoblar bo'limi sizga xarajatlarni toifalar bo'yicha kuzatish, valyutalarni konvertatsiya qilish va hisob-kitoblarni eksport qilish imkonini beradi.";
     }
-    if (lowerInput.includes("yordam") || lowerInput.includes("qollab-quvvatlash")) {
-      return "Men yordam berish uchun shu yerdaman! Siz: 1) Xizmatlarimiz haqida savollar berishingiz 2) Hujjatlar bilan yordam olishingiz 3) Xarajatlarni kuzatishingiz 4) Yoki shoshilinch yordam uchun qizil SOS tugmasini ishlatishingiz mumkin. Sizga nima kerak?";
+    if (lowerInput.includes("yordam") || lowerInput.includes("qollab")) {
+      return "Men yordam berish uchun shu yerdaman! Siz xizmatlarimiz haqida savollar berishingiz, hujjatlar bilan yordam olishingiz yoki xarajatlarni kuzatishingiz mumkin. Sizga nima kerak?";
     }
     
-    return "Xabaringiz uchun rahmat. Siz so'rayotgan mavzu: \"" + input.substring(0, 50) + "...\". Men sizga bu borada yordam bera olaman. Konsalting xizmatlarimizning qaysi biriga ko'proq qiziqishingizni bilsam bo'ladimi?";
+    return "Xabaringiz uchun rahmat. Men sizga bu borada yordam bera olaman. Konsalting xizmatlarimizning qaysi biriga ko'proq qiziqishingizni bilsam bo'ladimi?";
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputValue.trim()) {
-      sendMessage(inputValue, isVoiceMode ? "voice" : "text");
+      sendMessage(inputValue, "text");
     }
   };
 
@@ -227,7 +431,6 @@ export default function Chat() {
 
   return (
     <div className="min-h-screen flex flex-col text-white">
-      {/* Header */}
       <header className="sticky top-0 z-30 border-b border-gray-700 bg-black/50 backdrop-blur-lg px-4 py-3 pt-16">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -237,13 +440,35 @@ export default function Chat() {
             <div>
               <h1 className="font-semibold text-white">AI Yordamchi</h1>
               <p className="text-xs text-gray-400">
-                {isVoiceMode 
-                  ? `Ovozli rejim (${MAX_VOICE_MESSAGES - voiceCount} qoldi)` 
-                  : "Matn rejimi"}
+                {isListening ? "🎤 Tinglamoqda..." : isSpeaking ? "🔊 Gapirmoqda..." : "✅ Onlayn"}
               </p>
             </div>
           </div>
           <div className="flex gap-2">
+            {!voiceSupported && (
+              <Button variant="ghost" size="icon-sm" className="text-yellow-400 hover:bg-black/40">
+                <AlertCircle className="h-4 w-4" />
+              </Button>
+            )}
+            <Button 
+              variant="ghost" 
+              size="icon-sm" 
+              onClick={() => {
+                setAutoSpeakEnabled(!autoSpeakEnabled);
+                if (!autoSpeakEnabled) {
+                  toast({
+                    title: "Ovoz yoqildi",
+                    description: "AI javoblari endi ovoz bilan o'qiladi",
+                  });
+                }
+              }} 
+              className={cn(
+                "hover:bg-black/40",
+                autoSpeakEnabled ? "text-blue-400" : "text-gray-500"
+              )}
+            >
+              {autoSpeakEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            </Button>
             <Button variant="ghost" size="icon-sm" onClick={() => navigate("/calculator")} className="text-blue-400 hover:bg-black/40">
               <Calculator className="h-4 w-4" />
             </Button>
@@ -254,7 +479,6 @@ export default function Chat() {
         </div>
       </header>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.map((message) => (
           <div
@@ -322,27 +546,29 @@ export default function Chat() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
       <div className="sticky bottom-0 z-20 border-t border-gray-700 bg-black/50 backdrop-blur-lg p-4">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Button
             type="button"
-            variant={isVoiceMode ? "telegram" : "outline"}
+            variant="telegram"
             size="icon"
-            onClick={() => voiceCount < MAX_VOICE_MESSAGES && setIsVoiceMode(!isVoiceMode)}
-            disabled={voiceCount >= MAX_VOICE_MESSAGES}
+            onClick={toggleListening}
+            disabled={isSending || !voiceSupported}
             className={cn(
-              isVoiceMode ? "bg-red-600/90 hover:bg-red-700/90" : "bg-black/40 text-red-400 hover:bg-black/50 border-gray-700"
+              isListening 
+                ? "bg-red-600/90 hover:bg-red-700/90 animate-pulse" 
+                : "bg-blue-600/90 hover:bg-blue-700/90",
+              !voiceSupported && "opacity-50 cursor-not-allowed"
             )}
           >
-            {isVoiceMode ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+            {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
           </Button>
           <Input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder={isVoiceMode ? "Ovozli xabar..." : "Xabar yozing..."}
+            placeholder={isListening ? "Gapiring..." : "Xabar yozing yoki mikrofon tugmasini bosing..."}
             className="flex-1 bg-black/40 border-gray-700 text-white"
-            disabled={isSending}
+            disabled={isSending || isListening}
           />
           <Button type="submit" variant="telegram" size="icon" disabled={!inputValue.trim() || isSending} className="bg-blue-600/90 hover:bg-blue-700/90">
             <Send className="h-4 w-4" />
