@@ -1,3 +1,5 @@
+// /src/pages/Chat.tsx - TO'LIQ YANGILANGAN KOD (TTS Xato Tashxisi Qo'shildi)
+
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -17,6 +19,7 @@ import {
   Volume2,
   VolumeX,
   AlertCircle,
+  Headphones,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +30,36 @@ interface Message {
   message_type: "voice" | "text";
   created_at: string;
 }
+
+// === KNOWLEDGE BASE (Berilgan ma'lumotlar saqlandi) ===
+const knowledgeBase = {
+  narxlar: `💳 Go Korea Consulting Xizmatlari Narxlari:
+1. Oldindan To'lov (Shartnoma va Hujjatlar uchun): Summasi: 2,000,000 So'm. Shartnoma imzolangan kuni to'lanadi. Oldindan to'lovdan keyin VIZA chiqquniga qadar boshqa to'lov talab qilinmaydi.
+2. Oxirgi To'lov (Firma Xizmati uchun): Summasi: 1900 USD. VIZA qo'lingizga tegganidan so'ng (Fevral-Mart oylarida) to'lanadi.
+ℹ️ Konsalting Xizmatiga Kiritilganlar: Koreya universitetlariga hujjat topshirish, qabul jarayonini to'liq nazorat qilish va viza olishda yordam berish. Hujjatlarni apostil, tarjima va boshqa kerakli xarajatlar oldindan to'lovga kiritilgan.`,
+  kurslar: `🇰🇷 Koreys Tili Kurslari (D-4 Viza):
+📅 Davomiylik: 6 oy (har bir daraja uchun).
+🗓️ Boshlanish: Mart, Iyun, Sentyabr, Dekabr (yiliga 4 marta).
+⏰ Dars vaqti: Haftada 5 kun, kuniga 4 soat (09:00 - 13:00).
+💵 Narx: 1,500,000 KRW (bir semestr, 3 oy).
+📄 Asosiy Hujjat Talablari (Viza uchun): 1. Zagran pasport, 2. ID yoki Yashil pasport, 3. Rasm 3x4 JPG, 4. Ota-ona pasportlari, 5. Metrika, 6. IELTS/TOPIK (agar bo'lsa), 7. Diplom (asl), 8. 2025 Bitiruvchilar uchun: 1-7 semestr baholar va Ma'lumotnoma.
+✈️ Viza: Til kurslari uchun D-4 viza.`,
+  universitetlar: [
+    { name: "Woosuk Universiteti", shahar: "Jeonju", kontrakt: "$2,200 - $2,500 / semestr", afzallik: "Past narx, stipendiya, zamonaviy yotoqxona. Qabul: Standart." },
+    { name: "Baekseok Universiteti", shahar: "Cheonan", kontrakt: "$2,500 - $2,700 / semestr", afzallik: "Seulga 1 soat, zamonaviy kampus. Qabul: Standart." },
+    { name: "Daeshin Universiteti", shahar: "Gyeongsan", kontrakt: "$2,600 - $2,800 / semestr", afzallik: "Tinch shahar, individual e'tibor. Qabul: Intervyu." },
+    { name: "BUFS (Busan Xorijiy Tillar Universiteti)", shahar: "Busan", kontrakt: "$2,400 - $2,600 / semestr", afzallik: "Xorijiy tillar, dengiz bo'yida, stipendiya. Qabul: Intervyu." },
+    { name: "Sungkyul Universiteti", shahar: "Anyang", kontrakt: "$2,600 - $2,800 / semestr", afzallik: "Seulga 30 daqiqa, shaxsiy yondashuv. Qabul: Standart." },
+    { name: "Singyeongju Universiteti", shahar: "Gyeongju", kontrakt: "$2,800 - $3,000 / semestr", afzallik: "Tarixiy shahar, turizm yo'nalishi kuchli. Qabul: Intervyu." },
+    { name: "Hansung Universiteti", shahar: "Seoul", kontrakt: "$3,200 - $3,400 / semestr", afzallik: "Seul markazida, dizayn/IT kuchli. Qabul: Intervyu." },
+  ],
+  aloqa: `📞 Kontakt ma'lumotlari:
+• Telefon raqamlari: +998 33 9391515, +998 97 9481515
+• Telegram Adminlari: @gokorea_admin, @gokorea_shahriyor
+• Telegram Kanalimiz: Yangiliklar uchun kanalimizni kuzating!
+• Saytimiz: https://gokoreakonsalting.vercel.app/`,
+};
+// === KNOWLEDGE BASE END ===
 
 export default function Chat() {
   const { user, isLoading: authLoading } = useAuth();
@@ -43,14 +76,18 @@ export default function Chat() {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [hasGreeted, setHasGreeted] = useState(false);
-  const [autoSpeakEnabled, setAutoSpeakEnabled] = useState(true);
+  
+  // Brauzer TTS'ni to'liq o'chirib, faqat API ovozini boshqarish uchun True qoldirildi
+  const [autoSpeakEnabled, setAutoSpeakEnabled] = useState(true); 
+  const [autoListenEnabled, setAutoListenEnabled] = useState(true); 
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [micPermission, setMicPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   
   const recognitionRef = useRef<any>(null);
-  const synthRef = useRef<SpeechSynthesis>(window.speechSynthesis);
-  const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  // Brauzer TTS referensi olib tashlandi
+  const currentApiAudioRef = useRef<HTMLAudioElement | null>(null); // TTS API audioni boshqarish uchun
 
+  // === Lifecycle va Effectlar ===
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
@@ -75,7 +112,7 @@ export default function Chat() {
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
-      stopSpeaking();
+      stopSpeaking(); 
     };
   }, []);
 
@@ -83,18 +120,19 @@ export default function Chat() {
     if (conversationId && !hasGreeted && messages.length > 0 && voiceSupported) {
       setHasGreeted(true);
       setTimeout(() => {
-        requestMicrophonePermission();
+        requestMicrophonePermission(autoListenEnabled); 
       }, 800);
     }
-  }, [conversationId, messages, hasGreeted, voiceSupported]);
+  }, [conversationId, messages, hasGreeted, voiceSupported, autoListenEnabled]);
+  
+  // === Ovoz funksiyalari (TTS/ASR) ===
 
   const checkVoiceSupport = () => {
-    const speechSupported = 'speechSynthesis' in window;
+    // Faqat ASR (Tinglash) ni tekshirish qoldirildi
     const recognitionSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
-    
-    setVoiceSupported(speechSupported && recognitionSupported);
+    setVoiceSupported(recognitionSupported); 
 
-    if (!speechSupported || !recognitionSupported) {
+    if (!recognitionSupported) {
       toast({
         title: "Ovoz funksiyalari",
         description: "Brauzeringiz ovoz funksiyalarini to'liq qo'llab-quvvatlamaydi",
@@ -103,14 +141,15 @@ export default function Chat() {
     }
   };
 
-  const requestMicrophonePermission = async () => {
+  const requestMicrophonePermission = async (autoStartListening = false) => {
     try {
+      // Streamni tekshirish, ruxsat olgandan so'ng to'xtatish
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop());
       setMicPermission('granted');
       
       const greetingText = "Assalomu alaykum! Men Go Korea assistentiman. Sizga qanday yordam bera olaman? Qanday savolingiz bor?";
-      speak(greetingText);
+      speak(greetingText, autoStartListening);
       
       toast({
         title: "Mikrofon yoqildi",
@@ -120,6 +159,7 @@ export default function Chat() {
       console.error('Microphone permission denied:', error);
       setMicPermission('denied');
       setAutoSpeakEnabled(false);
+      setAutoListenEnabled(false);
     }
   };
 
@@ -127,7 +167,7 @@ export default function Chat() {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
+      recognitionRef.current.continuous = true; 
       recognitionRef.current.interimResults = false;
       recognitionRef.current.lang = 'uz-UZ';
 
@@ -136,30 +176,30 @@ export default function Chat() {
       };
 
       recognitionRef.current.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setInputValue(transcript);
-        setIsListening(false);
+        const transcript = event.results[event.results.length - 1][0].transcript; 
         
-        toast({
-          title: "Ovoz tanildi",
-          description: transcript,
-        });
-        
-        sendMessage(transcript, "voice");
+        if (transcript.trim() && !isSending && !isSpeaking) {
+          recognitionRef.current?.stop(); 
+          setInputValue(transcript);
+          
+          toast({ title: "Ovoz tanildi", description: transcript });
+          
+          setAutoListenEnabled(false); 
+          sendMessage(transcript, "voice");
+        }
       };
 
       recognitionRef.current.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
         setIsListening(false);
         
-        if (event.error === 'no-speech') {
-          toast({
-            title: "Ovoz eshitilmadi",
-            description: "Iltimos, qaytadan urinib ko'ring",
-            variant: "destructive",
-          });
+        if (autoListenEnabled && !isSending && event.error !== 'not-allowed' && event.error !== 'aborted') {
+            setTimeout(() => {
+                 toggleListening(true);
+            }, 500); 
         } else if (event.error === 'not-allowed') {
           setMicPermission('denied');
+          setAutoListenEnabled(false);
           toast({
             title: "Ruxsat berilmadi",
             description: "Mikrofon ruxsatini brauzer sozlamalaridan yoqing",
@@ -167,120 +207,181 @@ export default function Chat() {
           });
         }
       };
-
-      recognitionRef.current.onend = () => {
-        setIsListening(false);
-      };
     }
   };
 
-  const speak = (text: string) => {
-    if (!autoSpeakEnabled || !voiceSupported) return;
-    
-    stopSpeaking();
-    
-    if (synthRef.current.getVoices().length === 0) {
-      synthRef.current.addEventListener('voiceschanged', () => {
-        performSpeak(text);
-      }, { once: true });
-    } else {
-      performSpeak(text);
+// =================================================================================
+// === TTS API INTEGRATSIYASI FUNKSIYASI (Yuqori sifatli ovoz) ===
+// !!! MUHIM: Xatolarni aniqlash uchun bu qism YANGILANDI !!!
+// =================================================================================
+  const playApiAudio = async (text: string, startListeningAfter: boolean) => {
+    if (!voiceSupported || !autoSpeakEnabled) return; 
+
+    try {
+        stopSpeaking(); 
+        setIsSpeaking(true);
+        
+        // Backend API Endpoint'ga chaqiruv
+        const response = await fetch('/api/tts', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text }), 
+        });
+
+        if (!response.ok) {
+            setIsSpeaking(false);
+            
+            // Xatolik xabarini chiqarish
+            let errorText = await response.text();
+            
+            toast({
+                title: `TTS API Xatosi: ${response.status}`,
+                description: `Server xatosi. Status: ${response.status}. Javob: ${errorText.substring(0, 50)}...`, // Xatolikni ko'rsatish
+                variant: "destructive",
+            });
+            
+            throw new Error(`TTS API xatosi: ${response.statusText}. Status: ${response.status}`); 
+        }
+
+        const audioBlob = await response.blob();
+        
+        // Audio hajmini tekshirish (Audio o'rniga xato matni kelishini tekshirish)
+        if (audioBlob.size < 1000) { 
+             setIsSpeaking(false);
+             toast({
+                title: "TTS Xatosi: Kichik Audio",
+                description: `TTS Serverdan audio olinmadi. Serverda Autentifikatsiya muammosi bo'lishi mumkin. Audio hajmi: ${audioBlob.size} byte.`,
+                variant: "destructive",
+            });
+            throw new Error("TTS serverdan noto'g'ri (juda kichik) audio fayl olindi.");
+        }
+        
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        const audio = new Audio(audioUrl);
+        currentApiAudioRef.current = audio; 
+
+        audio.onended = () => {
+            setIsSpeaking(false);
+            if (startListeningAfter || autoListenEnabled) {
+                toggleListening(true);
+            }
+            URL.revokeObjectURL(audioUrl); 
+            currentApiAudioRef.current = null;
+        };
+        
+        audio.onerror = () => {
+             console.error("Audio playback error: Fayl o'ynalmadi.");
+             setIsSpeaking(false);
+             toast({
+                title: "Audio O'ynatish Xatosi",
+                description: "Olingan audio fayl noto'g'ri formatda yoki buzilgan.",
+                variant: "destructive",
+            });
+             URL.revokeObjectURL(audioUrl);
+             currentApiAudioRef.current = null;
+        }
+        
+        await audio.play();
+
+    } catch (error) {
+        console.error("TTS API call error: Ulanish xatosi:", error);
+        // Agar xato yuqorida aniq status code bilan ko'rsatilmagan bo'lsa (Masalan, 404 yoki Connection Refused)
+        if (!isSpeaking) {
+             toast({
+                title: "Ulanish Xatosi (404/Refused)",
+                description: "Backend serveri /api/tts endpointini topa olmadi yoki ulanish rad etildi.",
+                variant: "destructive",
+            });
+        }
+        setIsSpeaking(false); 
     }
+  }
+
+
+  const speak = (text: string, startListeningAfter = false) => {
+    if (!autoSpeakEnabled) {
+       if (startListeningAfter) toggleListening(true); 
+       return;
+    }
+    
+    stopSpeaking(); 
+    
+    // Faqat API funksiyasini chaqiramiz
+    playApiAudio(text, startListeningAfter);
   };
 
-  const performSpeak = (text: string) => {
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    const voices = synthRef.current.getVoices();
-    const uzbekVoice = voices.find(v => v.lang.includes('uz')) || 
-                       voices.find(v => v.lang.includes('ru')) ||
-                       voices[0];
-    
-    if (uzbekVoice) {
-      utterance.voice = uzbekVoice;
-    }
-    
-    utterance.lang = 'uz-UZ';
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-    };
-
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      currentUtteranceRef.current = null;
-    };
-
-    utterance.onerror = (event) => {
-      console.error('Speech synthesis error:', event);
-      setIsSpeaking(false);
-      currentUtteranceRef.current = null;
-    };
-
-    currentUtteranceRef.current = utterance;
-    synthRef.current.speak(utterance);
-  };
 
   const stopSpeaking = () => {
-    if (synthRef.current.speaking) {
-      synthRef.current.cancel();
+    // API orqali yuklangan audioni to'xtatish
+    if (currentApiAudioRef.current) {
+        currentApiAudioRef.current.pause();
+        currentApiAudioRef.current.currentTime = 0;
+        // Audio manbasini tozalash (agar hali tozalab ulgurmagan bo'lsa)
+        if (currentApiAudioRef.current.src) {
+             URL.revokeObjectURL(currentApiAudioRef.current.src); 
+        }
+        currentApiAudioRef.current = null;
     }
+    
     setIsSpeaking(false);
-    currentUtteranceRef.current = null;
   };
+// ... Qolgan kod o'zgarishsiz qoladi
 
-  const toggleListening = async () => {
+  const toggleListening = (forceStart = false) => {
+    // ... (Qolgan kod o'zgarishsiz qoladi)
     if (!voiceSupported) {
-      toast({
-        title: "Xatolik",
-        description: "Ovoz funksiyasi mavjud emas",
-        variant: "destructive",
-      });
+      toast({ title: "Xatolik", description: "Ovoz funksiyasi mavjud emas", variant: "destructive" });
       return;
     }
 
     if (micPermission === 'denied') {
-      toast({
-        title: "Ruxsat kerak",
-        description: "Mikrofon ruxsatini brauzer sozlamalaridan yoqing",
-        variant: "destructive",
-      });
+      toast({ title: "Ruxsat kerak", description: "Mikrofon ruxsatini brauzer sozlamalaridan yoqing", variant: "destructive" });
       return;
     }
 
     if (micPermission === 'prompt') {
-      await requestMicrophonePermission();
+      requestMicrophonePermission(true);
       return;
     }
 
-    if (isListening) {
+    if (isListening && !forceStart) {
       recognitionRef.current?.stop();
       setIsListening(false);
-    } else {
+    } else if (forceStart || !isListening) {
       if (isSpeaking) {
         stopSpeaking();
       }
       try {
+        // Avval to'xtatish va keyin boshlash, ehtiyot chorasi
+        recognitionRef.current?.stop(); 
         recognitionRef.current?.start();
       } catch (error) {
         console.error('Error starting recognition:', error);
-        toast({
-          title: "Xatolik",
-          description: "Ovozni tanishda xatolik yuz berdi",
-          variant: "destructive",
-        });
       }
     }
   };
+  
+  const toggleAutoListen = () => {
+      // ... (Qolgan kod o'zgarishsiz qoladi)
+      const newState = !autoListenEnabled;
+      setAutoListenEnabled(newState);
+      if (newState) {
+          toggleListening(true);
+          toast({ title: "Avtomatik tinglash yoqildi", description: "AI gapirib bo'lgach, avtomatik tinglashni boshlaydi." });
+      } else {
+          recognitionRef.current?.stop();
+          toast({ title: "Avtomatik tinglash o'chirildi", description: "AI gapirib bo'lgach, tinglashni avtomatik boshlamaydi." });
+      }
+  };
 
+  // === Chat mantiqi ===
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
-
+  
   const loadOrCreateConversation = async () => {
+    // ... Supabase mantiqi (O'zgarishsiz)
     if (!user) return;
     setIsLoading(true);
 
@@ -310,7 +411,7 @@ export default function Chat() {
         
         const welcomeMsg: Message = {
           id: "welcome",
-          content: "Salom! Men sizning AI yordamchingizman. Bugun qanday yordam bera olaman?",
+          content: "Salom! Men Go Korea konsalting kompaniyasi uchun AI yordamchingizman. Universitetlar, narxlar yoki kurslar haqida savol bering!",
           is_ai: true,
           message_type: "text",
           created_at: new Date().toISOString(),
@@ -328,10 +429,24 @@ export default function Chat() {
       setIsLoading(false);
     }
   };
+  
+  const exportToPDF = () => {
+    // ... (O'zgarishsiz)
+    toast({
+      title: "Eksport Boshlandi",
+      description: "Suhbat tarixingiz PDF fayliga eksport qilinmoqda (bu funksiya hozircha simulyatsiya qilingan)...",
+    });
+  };
+
 
   const sendMessage = async (content: string, type: "voice" | "text") => {
     if (!conversationId || !content.trim()) return;
     setIsSending(true);
+    
+    // Tinglash jarayonini to'xtatish
+    if (isListening) {
+         recognitionRef.current?.stop();
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -352,60 +467,81 @@ export default function Chat() {
         is_ai: false,
       });
 
-      setTimeout(async () => {
-        const aiResponse = generateAIResponse(content);
-        const aiMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: aiResponse,
-          is_ai: true,
-          message_type: "text",
-          created_at: new Date().toISOString(),
-        };
+      const aiResponse = generateAIResponse(content);
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: aiResponse,
+        is_ai: true,
+        message_type: "text",
+        created_at: new Date().toISOString(),
+      };
 
-        setMessages((prev) => [...prev, aiMessage]);
+      setMessages((prev) => [...prev, aiMessage]);
 
-        await supabase.from("messages").insert({
-          conversation_id: conversationId,
-          content: aiResponse,
-          message_type: "text",
-          is_ai: true,
-        });
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        content: aiResponse,
+        message_type: "text",
+        is_ai: true,
+      });
 
-        if (autoSpeakEnabled) {
-          speak(aiResponse);
-        }
+      // Faqat API orqali ovoz chiqarish
+      if (autoSpeakEnabled) {
+        speak(aiResponse, autoListenEnabled); 
+      } else if (autoListenEnabled) {
+          // Agar ovoz o'chirilgan bo'lsa ham, avtomatik tinglashni boshlash kerak
+          toggleListening(true);
+      }
 
-        setIsSending(false);
-      }, 1000);
     } catch (error) {
       console.error("Error sending message:", error);
-      toast({
-        title: "Xatolik",
-        description: "Xabarni yuborishda xatolik yuz berdi",
-        variant: "destructive",
-      });
+      toast({ title: "Xatolik", description: "Xabarni yuborishda xatolik yuz berdi", variant: "destructive" });
+    } finally {
       setIsSending(false);
     }
   };
 
+
   const generateAIResponse = (input: string): string => {
-    const lowerInput = input.toLowerCase();
+    // ... (O'zgarishsiz qolgan AI mantiqi)
+    const lowerInput = input.toLowerCase().replace(/[^a-zа-я\s]/g, '');
     
-    if (lowerInput.includes("narx") || lowerInput.includes("qiymat")) {
-      return "Bizning konsalting xizmatlarimiz sizning ehtiyojlaringizga moslashtirilgan. Asosiy konsultatsiya soatiga 99$ dan boshlanadi. Davom etayotgan loyihalar uchun biz paketli shartnomalar taklif qilamiz. Sizga aniq hisob-kitob qilishda yordam beraymi?";
-    }
-    if (lowerInput.includes("hujjat") || lowerInput.includes("fayl")) {
-      return "Siz hujjatlaringizni 'Hujjatlar' bo'limida boshqarishingiz mumkin. Men rasmlarni PDF ga o'zgartirish, fayllarni arxivlash yoki yuklamalarni tartiblashda yordam bera olaman.";
-    }
-    if (lowerInput.includes("kalkulyator") || lowerInput.includes("xarajat")) {
-      return "Hisob-kitoblar bo'limi sizga xarajatlarni toifalar bo'yicha kuzatish, valyutalarni konvertatsiya qilish va hisob-kitoblarni eksport qilish imkonini beradi.";
-    }
-    if (lowerInput.includes("yordam") || lowerInput.includes("qollab")) {
-      return "Men yordam berish uchun shu yerdaman! Siz xizmatlarimiz haqida savollar berishingiz, hujjatlar bilan yordam olishingiz yoki xarajatlarni kuzatishingiz mumkin. Sizga nima kerak?";
+    // Universitetlarga oid savollar
+    const uniName = knowledgeBase.universitetlar.find(u => lowerInput.includes(u.name.toLowerCase().replace(" universiteti", "")));
+    if (uniName) {
+        return `🎓 ${uniName.name} haqida ma'lumot:
+Shahar: ${uniName.shahar}
+Kontrakt (1 Semestr): ${uniName.kontrakt}
+Afzalliklari: ${uniName.afzallik}`;
     }
     
-    return "Xabaringiz uchun rahmat. Men sizga bu borada yordam bera olaman. Konsalting xizmatlarimizning qaysi biriga ko'proq qiziqishingizni bilsam bo'ladimi?";
+    // Asosiy ma'lumotlarga oid so'rovlar
+    if (lowerInput.includes("narx") || lowerInput.includes("qiymat") || lowerInput.includes("pul") || lowerInput.includes("to'lov")) {
+      return knowledgeBase.narxlar;
+    }
+    if (lowerInput.includes("kurs") || lowerInput.includes("d-4") || lowerInput.includes("til")) {
+      return knowledgeBase.kurslar;
+    }
+    if (lowerInput.includes("hujjat") || lowerInput.includes("talablar") || lowerInput.includes("viza")) {
+      return knowledgeBase.kurslar; 
+    }
+    if (lowerInput.includes("aloqa") || lowerInput.includes("admin") || lowerInput.includes("telefon")) {
+      return knowledgeBase.aloqa;
+    }
+    if (lowerInput.includes("universitet") || lowerInput.includes("univer")) {
+        const uniList = knowledgeBase.universitetlar.map(u => u.name).join(", ");
+        return `Bizning hamkor universitetlarimiz: ${uniList}. Qaysi biri haqida batafsil ma'lumot olishni xohlaysiz?`;
+    }
+    
+    // Standart/Yordam javobi
+    if (lowerInput.includes("yordam") || lowerInput.includes("salom") || lowerInput.includes("qanday") || lowerInput.includes("assalomu aleykum")) {
+      return "Assalomu alaykum! Men Go Korea konsalting AI assistentiman. Sizga Koreyadagi universitetlar, kurslar, narxlar yoki aloqa ma'lumotlari haqida ma'lumot berishim mumkin. Qanday savolingiz bor?";
+    }
+    
+    // Boshqa javoblar
+    return "Xabaringiz uchun rahmat. Men bu savolingiz bo'yicha aniq ma'lumotga ega emasman. Iltimos, Koreya konsalting xizmatlari (Universitetlar, Kurslar, Narxlar, Aloqa) bo'yicha savol bering.";
   };
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -414,12 +550,6 @@ export default function Chat() {
     }
   };
 
-  const exportToPDF = () => {
-    toast({
-      title: "Eksport Boshlandi",
-      description: "Suhbat tarixingiz PDF fayliga eksport qilinmoqda...",
-    });
-  };
 
   if (authLoading || isLoading) {
     return (
@@ -429,6 +559,7 @@ export default function Chat() {
     );
   }
 
+  // === UI qismi (O'zgarishsiz) ===
   return (
     <div className="min-h-screen flex flex-col text-white">
       <header className="sticky top-0 z-30 border-b border-gray-700 bg-black/50 backdrop-blur-lg px-4 py-3 pt-16">
@@ -450,16 +581,31 @@ export default function Chat() {
                 <AlertCircle className="h-4 w-4" />
               </Button>
             )}
+            
+            {/* Avtomatik Tinglashni Yoqish/O'chirish (Doimiy eshitish rejimi) */}
+            <Button 
+              variant="ghost" 
+              size="icon-sm" 
+              onClick={toggleAutoListen} 
+              className={cn(
+                "hover:bg-black/40",
+                autoListenEnabled ? "text-green-400" : "text-gray-500"
+              )}
+              disabled={!voiceSupported}
+            >
+              <Headphones className="h-4 w-4" />
+            </Button>
+            
+            {/* Ovozli javobni yoqish/o'chirish */}
             <Button 
               variant="ghost" 
               size="icon-sm" 
               onClick={() => {
                 setAutoSpeakEnabled(!autoSpeakEnabled);
                 if (!autoSpeakEnabled) {
-                  toast({
-                    title: "Ovoz yoqildi",
-                    description: "AI javoblari endi ovoz bilan o'qiladi",
-                  });
+                  toast({ title: "Ovoz yoqildi", description: "AI javoblari endi ovoz bilan o'qiladi" });
+                } else {
+                    stopSpeaking();
                 }
               }} 
               className={cn(
@@ -478,8 +624,8 @@ export default function Chat() {
           </div>
         </div>
       </header>
-
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      
+       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.map((message) => (
           <div
             key={message.id}
@@ -545,14 +691,14 @@ export default function Chat() {
         )}
         <div ref={messagesEndRef} />
       </div>
-
+      
       <div className="sticky bottom-0 z-20 border-t border-gray-700 bg-black/50 backdrop-blur-lg p-4">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Button
             type="button"
             variant="telegram"
             size="icon"
-            onClick={toggleListening}
+            onClick={() => toggleListening(false)}
             disabled={isSending || !voiceSupported}
             className={cn(
               isListening 

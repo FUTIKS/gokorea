@@ -1,354 +1,212 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { 
   Users, 
-  MessageCircle, 
-  FileText, 
-  BarChart3, 
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
+  Activity, 
+  TrendingUp,
+  UserCheck,
+  Calendar,
+  ArrowLeft,
+  BarChart3,
   Clock,
-  Star,
-  MapPin
+  AlertTriangle,
+  Settings,
 } from "lucide-react";
 
-interface Profile {
-  id: string;
-  username: string | null;
-  phone: string | null;
-  is_online: boolean;
-  last_seen: string;
-  created_at: string;
-}
-
-interface Conversation {
-  id: string;
-  user_id: string;
-  status: string;
-  rating: number | null;
-  created_at: string;
-  profiles?: Profile;
-}
-
-interface SOSLog {
-  id: string;
-  user_id: string;
-  location: { latitude: number; longitude: number } | null;
-  current_screen: string | null;
-  resolved: boolean;
-  created_at: string;
-  profiles?: Profile;
-}
-
-interface Document {
-  id: string;
-  user_id: string;
-  file_name: string;
-  file_type: string;
-  status: string;
-  created_at: string;
+interface UserStats {
+  totalUsers: number;
+  activeToday: number;
+  newThisWeek: number;
+  newThisMonth: number;
+  recentUsers: Array<{
+    id: string;
+    username: string;
+    created_at: string;
+    last_seen: string;
+  }>;
 }
 
 export default function Admin() {
-  const { user, isAdmin, isLoading: authLoading } = useAuth();
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const [stats] = useState<UserStats>({
+    totalUsers: 0,
+    activeToday: 0,
+    newThisWeek: 0,
+    newThisMonth: 0,
+    recentUsers: [],
+  });
 
-  const [users, setUsers] = useState<Profile[]>([]);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [sosLogs, setSOSLogs] = useState<SOSLog[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    if (!authLoading && (!user || !isAdmin)) {
-      navigate("/");
-      toast({
-        title: "Access Denied",
-        description: "Admin access required",
-        variant: "destructive",
-      });
-    }
-  }, [user, isAdmin, authLoading, navigate, toast]);
-
-  useEffect(() => {
-    if (isAdmin) {
-      loadAdminData();
-    }
-  }, [isAdmin]);
-
-  const loadAdminData = async () => {
-    setIsLoading(true);
-    try {
-      const [usersRes, convsRes, sosRes, docsRes] = await Promise.all([
-        supabase.from("profiles").select("*").order("created_at", { ascending: false }),
-        supabase.from("conversations").select("*, profiles(*)").order("created_at", { ascending: false }),
-        supabase.from("sos_logs").select("*, profiles(*)").order("created_at", { ascending: false }),
-        supabase.from("documents").select("*").order("created_at", { ascending: false }),
-      ]);
-
-      if (usersRes.data) setUsers(usersRes.data as Profile[]);
-      if (convsRes.data) setConversations(convsRes.data as Conversation[]);
-      if (sosRes.data) setSOSLogs(sosRes.data as SOSLog[]);
-      if (docsRes.data) setDocuments(docsRes.data as Document[]);
-    } catch (error) {
-      console.error("Error loading admin data:", error);
-    } finally {
-      setIsLoading(false);
-    }
+  // Orqaga qaytish funksiyasi
+  const goBack = () => {
+    window.history.back();
   };
-
-  const resolveSOS = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from("sos_logs")
-        .update({ 
-          resolved: true, 
-          resolved_at: new Date().toISOString(),
-          resolved_by: user?.id 
-        })
-        .eq("id", id);
-
-      if (error) throw error;
-      
-      toast({ title: "SOS Resolved", description: "Alert has been marked as resolved" });
-      loadAdminData();
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to resolve SOS", variant: "destructive" });
-    }
-  };
-
-  const updateDocumentStatus = async (id: string, status: "approved" | "rejected") => {
-    try {
-      const { error } = await supabase
-        .from("documents")
-        .update({ status })
-        .eq("id", id);
-
-      if (error) throw error;
-      
-      toast({ title: "Updated", description: `Document ${status}` });
-      loadAdminData();
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to update document", variant: "destructive" });
-    }
-  };
-
-  if (authLoading || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-primary">Loading admin panel...</div>
-      </div>
-    );
-  }
-
-  if (!isAdmin) return null;
-
-  const onlineUsers = users.filter((u) => u.is_online).length;
-  const unresolvedSOS = sosLogs.filter((s) => !s.resolved).length;
-  const pendingDocs = documents.filter((d) => d.status === "pending").length;
-
-  const stats = [
-    { label: "Total Users", value: users.length, icon: Users, color: "text-primary" },
-    { label: "Active Now", value: onlineUsers, icon: Clock, color: "text-success" },
-    { label: "SOS Alerts", value: unresolvedSOS, icon: AlertTriangle, color: "text-destructive" },
-    { label: "Pending Docs", value: pendingDocs, icon: FileText, color: "text-warning" },
-  ];
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <header className="pt-16 pb-6 px-4 gradient-hero">
-        <h1 className="text-2xl font-bold text-foreground">Admin Panel</h1>
-        <p className="text-muted-foreground mt-1">Manage users & monitor activity</p>
-      </header>
+    <div className="min-h-screen w-full relative overflow-hidden pb-20 bg-gradient-to-br from-[#0A122A] via-[#1a1a3e] to-[#0A122A]">
+      
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -top-20 -left-20 animate-pulse"></div>
+        <div className="absolute w-96 h-96 bg-purple-500/10 rounded-full blur-3xl -bottom-20 -right-20 animate-pulse delay-1000"></div>
+      </div>
 
-      {/* Stats */}
-      <section className="px-4 -mt-4 mb-4">
-        <div className="grid grid-cols-2 gap-2">
-          {stats.map((stat) => (
-            <Card key={stat.label} className="border-0 shadow-card">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-2xl font-bold">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground">{stat.label}</p>
-                  </div>
-                  <stat.icon className={`h-8 w-8 ${stat.color} opacity-50`} />
+      {/* Content */}
+      <div className="relative z-10">
+        
+        {/* Header */}
+        <header className="pt-12 pb-6 px-4">
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              onClick={goBack}
+              className="w-10 h-10 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 flex items-center justify-center text-blue-400 transition-all"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
+              <p className="text-gray-400 text-sm">Foydalanuvchilar statistikasi</p>
+            </div>
+          </div>
+        </header>
+
+        {/* Texnik Ishlar Xabari */}
+        <section className="px-4 mb-6">
+          <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/50 rounded-2xl p-6 backdrop-blur-sm">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-yellow-500/30 flex items-center justify-center flex-shrink-0 animate-pulse">
+                <AlertTriangle className="h-6 w-6 text-yellow-400" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-lg font-bold text-white mb-2">
+                  Texnik Ishlar Olib Borilmoqda
+                </h2>
+                <p className="text-gray-300 text-sm leading-relaxed mb-3">
+                  Uzr, bu bo'limda hozirda texnik ishlar olib borilmoqda. 
+                  Tezda bu bo'lim <span className="text-yellow-400 font-semibold">faqatgina adminlar</span> uchun ishga tushadi.
+                </p>
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <Settings className="h-4 w-4 animate-spin" />
+                  <span>Qiziqishingiz uchun rahmat!</span>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      {/* Tabs */}
-      <div className="px-4">
-        <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-4">
-            <TabsTrigger value="users" className="text-xs">Users</TabsTrigger>
-            <TabsTrigger value="chats" className="text-xs">Chats</TabsTrigger>
-            <TabsTrigger value="docs" className="text-xs">Docs</TabsTrigger>
-            <TabsTrigger value="sos" className="text-xs">SOS</TabsTrigger>
-          </TabsList>
-
-          {/* Users Tab */}
-          <TabsContent value="users">
-            <div className="space-y-2">
-              {users.map((profile) => (
-                <Card key={profile.id} className="border-0 shadow-card">
-                  <CardContent className="p-3 flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${profile.is_online ? "bg-success" : "bg-muted"}`} />
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{profile.username || "No username"}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {profile.phone || "No phone"} • Joined {new Date(profile.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <Badge variant={profile.is_online ? "default" : "secondary"}>
-                      {profile.is_online ? "Online" : "Offline"}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              ))}
+              </div>
             </div>
-          </TabsContent>
+          </div>
+        </section>
 
-          {/* Conversations Tab */}
-          <TabsContent value="chats">
-            <div className="space-y-2">
-              {conversations.map((conv) => (
-                <Card key={conv.id} className="border-0 shadow-card">
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-medium text-sm">
-                        {conv.profiles?.username || "Unknown User"}
-                      </p>
-                      <Badge variant={conv.status === "active" ? "default" : "secondary"}>
-                        {conv.status}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{new Date(conv.created_at).toLocaleString()}</span>
-                      {conv.rating && (
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3 w-3 text-warning fill-warning" />
-                          {conv.rating}/5
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+        {/* Stats Cards - Disabled State */}
+        <section className="px-4 space-y-3 opacity-50 pointer-events-none">
+          
+          {/* Jami Foydalanuvchilar */}
+          <div className="border-0 shadow-lg bg-gradient-to-br from-blue-600/20 to-blue-800/20 backdrop-blur-sm border border-blue-500/30 rounded-xl">
+            <div className="p-4 flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl bg-blue-600/40 flex items-center justify-center border border-blue-500/50">
+                <Users className="h-7 w-7 text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-blue-300 font-medium">JAMI FOYDALANUVCHILAR</p>
+                <p className="text-3xl font-bold text-white mt-1">--</p>
+              </div>
             </div>
-          </TabsContent>
+          </div>
 
-          {/* Documents Tab */}
-          <TabsContent value="docs">
-            <div className="space-y-2">
-              {documents.map((doc) => (
-                <Card key={doc.id} className="border-0 shadow-card">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-5 w-5 text-muted-foreground" />
-                      <div className="flex-1">
-                        <p className="font-medium text-sm truncate">{doc.file_name}</p>
-                        <p className="text-xs text-muted-foreground capitalize">
-                          {doc.file_type.replace("_", " ")} • {new Date(doc.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      {doc.status === "pending" ? (
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => updateDocumentStatus(doc.id, "approved")}
-                          >
-                            <CheckCircle className="h-4 w-4 text-success" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => updateDocumentStatus(doc.id, "rejected")}
-                          >
-                            <XCircle className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <Badge variant={doc.status === "approved" ? "default" : "destructive"}>
-                          {doc.status}
-                        </Badge>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+          {/* Statistics Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            
+            {/* Bugun Aktiv */}
+            <div className="border-0 shadow-lg bg-gradient-to-br from-green-600/20 to-green-800/20 backdrop-blur-sm border border-green-500/30 rounded-xl">
+              <div className="p-4">
+                <div className="w-10 h-10 rounded-lg bg-green-600/40 flex items-center justify-center border border-green-500/50 mb-3">
+                  <Activity className="h-5 w-5 text-green-400" />
+                </div>
+                <p className="text-xs text-green-300 font-medium">BUGUN AKTIV</p>
+                <p className="text-2xl font-bold text-white mt-1">--</p>
+              </div>
             </div>
-          </TabsContent>
 
-          {/* SOS Tab */}
-          <TabsContent value="sos">
-            <div className="space-y-2">
-              {sosLogs.length === 0 ? (
-                <Card className="border-0 shadow-card">
-                  <CardContent className="p-8 text-center">
-                    <CheckCircle className="h-12 w-12 mx-auto mb-4 text-success" />
-                    <p className="text-muted-foreground">No SOS alerts</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                sosLogs.map((sos) => (
-                  <Card 
-                    key={sos.id} 
-                    className={`border-0 shadow-card ${!sos.resolved ? "border-l-4 border-destructive" : ""}`}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-medium text-sm flex items-center gap-2">
-                            <AlertTriangle className={`h-4 w-4 ${sos.resolved ? "text-muted-foreground" : "text-destructive"}`} />
-                            {sos.profiles?.username || "Unknown User"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Screen: {sos.current_screen || "Unknown"}
-                          </p>
-                        </div>
-                        {!sos.resolved ? (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => resolveSOS(sos.id)}
-                          >
-                            Resolve
-                          </Button>
-                        ) : (
-                          <Badge variant="secondary">Resolved</Badge>
-                        )}
-                      </div>
-                      {sos.location && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          {sos.location.latitude.toFixed(4)}, {sos.location.longitude.toFixed(4)}
-                        </div>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {new Date(sos.created_at).toLocaleString()}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
+            {/* Haftalik Yangi */}
+            <div className="border-0 shadow-lg bg-gradient-to-br from-purple-600/20 to-purple-800/20 backdrop-blur-sm border border-purple-500/30 rounded-xl">
+              <div className="p-4">
+                <div className="w-10 h-10 rounded-lg bg-purple-600/40 flex items-center justify-center border border-purple-500/50 mb-3">
+                  <TrendingUp className="h-5 w-5 text-purple-400" />
+                </div>
+                <p className="text-xs text-purple-300 font-medium">HAFTALIK YANGI</p>
+                <p className="text-2xl font-bold text-white mt-1">--</p>
+              </div>
             </div>
-          </TabsContent>
-        </Tabs>
+
+            {/* Oylik Yangi */}
+            <div className="border-0 shadow-lg bg-gradient-to-br from-orange-600/20 to-orange-800/20 backdrop-blur-sm border border-orange-500/30 rounded-xl">
+              <div className="p-4">
+                <div className="w-10 h-10 rounded-lg bg-orange-600/40 flex items-center justify-center border border-orange-500/50 mb-3">
+                  <Calendar className="h-5 w-5 text-orange-400" />
+                </div>
+                <p className="text-xs text-orange-300 font-medium">OYLIK YANGI</p>
+                <p className="text-2xl font-bold text-white mt-1">--</p>
+              </div>
+            </div>
+
+            {/* O'sish Sur'ati */}
+            <div className="border-0 shadow-lg bg-gradient-to-br from-cyan-600/20 to-cyan-800/20 backdrop-blur-sm border border-cyan-500/30 rounded-xl">
+              <div className="p-4">
+                <div className="w-10 h-10 rounded-lg bg-cyan-600/40 flex items-center justify-center border border-cyan-500/50 mb-3">
+                  <BarChart3 className="h-5 w-5 text-cyan-400" />
+                </div>
+                <p className="text-xs text-cyan-300 font-medium">O'SISH</p>
+                <p className="text-2xl font-bold text-white mt-1">--%</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* So'nggi Foydalanuvchilar - Disabled */}
+        <section className="px-4 mt-6 opacity-50 pointer-events-none">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase mb-3 flex items-center gap-2">
+            <UserCheck className="h-4 w-4" />
+            So'nggi Foydalanuvchilar
+          </h2>
+          
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="border-0 shadow-lg bg-black/30 backdrop-blur-sm rounded-xl">
+                <div className="p-3 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 flex items-center justify-center text-white font-bold">
+                    --
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="h-4 bg-gray-700/50 rounded w-24 mb-1"></div>
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <Clock className="h-3 w-3" />
+                      <div className="h-3 bg-gray-700/50 rounded w-20"></div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="h-3 bg-gray-700/50 rounded w-16 mb-1"></div>
+                    <div className="h-3 bg-gray-700/50 rounded w-12"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Orqaga Qaytish Tugmasi */}
+        <section className="px-4 mt-6">
+          <button
+            onClick={goBack}
+            className="w-full h-12 bg-blue-600/20 border-2 border-blue-500/50 text-blue-400 hover:bg-blue-600/30 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Orqaga Qaytish
+          </button>
+        </section>
+
+        {/* Footer Info */}
+        <section className="px-4 mt-6 text-center">
+          <p className="text-xs text-gray-500">
+            Admin funksiyalari tez orada faollashtiriladi
+          </p>
+          <p className="text-xs text-gray-600 mt-1">
+            v1.0.0-beta
+          </p>
+        </section>
       </div>
     </div>
   );
